@@ -3,6 +3,8 @@ module pbcompiler;
 import ProtocolBuffer.pbroot;
 import std.file;
 import std.string;
+import std.path;
+
 int main(char[][]args) {
 	// rip off the first arg, because that's the name of the program
 	args = args[1..$];
@@ -32,7 +34,21 @@ char[]compileRoot(char[]filename) {
 		tmp ~= "import "~compileRoot(imp)~";\n";
 	}
 	tmp ~= root.toDString;
+	// convert fname to a real path, .->/
+	fname = fname.tr(".","/");
 	fname ~= ".d";
+	char[]dname = fname.getDirName();
+	// check to see if we need to create the directory
+	if (dname.length && !dname.exists()) {
+		dname.mkdirRecurse();
+	}
 	write(fname,tmp);
 	return fname[0..$-2];
+}
+
+void mkdirRecurse(in char[] pathname)
+{
+	char[]left = getDirName(pathname);
+	exists(left) || mkdirRecurse(left);
+	mkdir(pathname);
 }
