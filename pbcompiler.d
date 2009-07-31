@@ -1,6 +1,9 @@
 module pbcompiler;
 // compiler for .proto protocol buffer definition files that generates D code
 import ProtocolBuffer.pbroot;
+import ProtocolBuffer.pbextension;
+import ProtocolBuffer.pbmessage;
+import ProtocolBuffer.pbgeneral;
 import std.file;
 import std.string;
 import std.path;
@@ -44,7 +47,61 @@ char[]readRoot(char[]filename) {
 void applyExtensions() {
 	foreach(root;docroots) {
 		// make sure something can only extend what it has access to
+		PBExtension[]extlist = getExtensions(root);
+		foreach(imp;root.imports) foreach(ext;extlist) {
+			char[]tmp = ext.name;
+			// attempt to match the import name to the beginning of the class name
+			if(imp == tmp[0..imp.length]) {
+				// we managed to match the front end, so rip it off along with the following comma
+				// XXX the extension should REALLY be removed from the list if it gets here and doesn't match anything
+				tmp = tmp[imp.length+1..$];
+			}
+			// now look for a message that matches the section within the current import
+			PBMessage*dst = imp.findMessage(tmp);
+			if (dst is null) {
+				continue;
+			}
+			// it looks like we have a match!
+			dst.child_exten ~= ext.children;
+		}
 	}
+}
+
+// this function digs through a given root to see if it has the message described by the dotstring
+PBMessage*findMessage(char[]impstr,char[]message) {
+	PBRoot root = docroots[impstr];
+	return searchMessages(root,message);
+}
+
+PBMessage*searchMessages(T)(inout T root,char[]message)
+in {
+	assert(message.length);
+} body {
+	char[]name = stripValidChars(CClass.Identifier,message);
+	if (message.length) {
+		// rip off the leading .
+		message = message[1..$];
+	}
+	// this is terminal, so run through the children to find a match
+	foreach(ref msg;root.message_defs) {
+		if (msg.name == name) {
+			if (!message.length) {
+				return &msg;
+			} else {
+				return searchMessages(msg,message);
+			}
+		}
+	}
+	return null;
+}
+
+PBExtension[]getExtensions(T)(T root) {
+	PBExtension[]ret;
+	ret ~= root.extensions;
+	foreach(msg;root.message_defs) {
+		ret ~= getExtensions(msg);
+	}
+	return ret;
 }
 
 // this is where all files are written, no real processing is done here
