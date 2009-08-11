@@ -7,6 +7,7 @@ import ProtocolBuffer.pbgeneral;
 import std.file;
 import std.string;
 import std.path;
+import std.stdio;
 // our tree of roots to play with, so that we can apply multiple extensions to a given document
 PBRoot[char[]]docroots;
 
@@ -46,25 +47,44 @@ char[]readRoot(char[]filename) {
 // we run through the whole list looking for extensions and applying them
 void applyExtensions() {
 	foreach(root;docroots) {
-		// make sure something can only extend what it has access to
+		// make sure something can only extend what it has access to (including where it was defined)
+		writefln("Probing root %s for extensions",root.Package);
 		PBExtension[]extlist = getExtensions(root);
-		foreach(imp;root.imports) foreach(ext;extlist) {
-			char[]tmp = ext.name;
-			// attempt to match the import name to the beginning of the class name
-			if(imp == tmp[0..imp.length]) {
-				// we managed to match the front end, so rip it off along with the following comma
-				// XXX the extension should REALLY be removed from the list if it gets here and doesn't match anything
-				tmp = tmp[imp.length+1..$];
+		foreach(ext;extlist) {
+			// check the current node first (just in case)
+			if (root.Package.applyExtension(ext)) continue;
+			foreach(imp;root.imports) {
+				// break out of the import loop to jump to the next extension
+				if (imp.applyExtension(ext)) break;
 			}
-			// now look for a message that matches the section within the current import
-			PBMessage*dst = imp.findMessage(tmp);
-			if (dst is null) {
-				continue;
-			}
-			// it looks like we have a match!
-			dst.child_exten ~= ext.children;
 		}
 	}
+}
+
+// attempt to apply an individual extension to a node identifier
+// returns 1 if applied
+int applyExtension(char[]imp,PBExtension ext) {
+	writefln("Attempting to apply extension %s",ext.name);
+	char[]tmp = ext.name;
+	bool impflag = false;
+	// attempt to match the import name to the beginning of the class name
+	if(imp == tmp[0..imp.length]) {
+		// we managed to match the front end, so rip it off along with the following comma
+		// XXX the extension should REALLY be removed from the list if it gets here and doesn't match anything
+		tmp = tmp[imp.length+1..$];
+		impflag = true;
+	}
+	// now look for a message that matches the section within the current import
+	PBMessage*dst = imp.findMessage(tmp);
+	if (dst is null) {
+		writefln("Found no destination to apply extension to %s in import \"%s\"",ext.name,imp);
+		if (impflag) throw new Exception("Found an import path match \""~imp~"\", but unable to apply extension \""~ext.name~"\'");
+		return 0;
+	}
+	// it looks like we have a match!
+	writefln("Applying extensions to %s",dst.name);
+	dst.child_exten ~= ext.children;
+	return 1;
 }
 
 // this function digs through a given root to see if it has the message described by the dotstring
