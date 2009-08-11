@@ -70,7 +70,6 @@ int applyExtension(char[]imp,PBExtension ext) {
 	// attempt to match the import name to the beginning of the class name
 	if(imp == tmp[0..imp.length]) {
 		// we managed to match the front end, so rip it off along with the following comma
-		// XXX the extension should REALLY be removed from the list if it gets here and doesn't match anything
 		tmp = tmp[imp.length+1..$];
 		impflag = true;
 	}
