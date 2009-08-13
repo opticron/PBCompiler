@@ -80,6 +80,22 @@ int applyExtension(char[]imp,PBExtension ext) {
 		if (impflag) throw new Exception("Found an import path match \""~imp~"\", but unable to apply extension \""~ext.name~"\'");
 		return 0;
 	}
+	// we have something we might want to apply it to! this is exciting!
+	// make sure it's within the allowed extensions
+	foreach(echild;ext.children) {
+		bool extmatch = false;
+		foreach(exten;dst.exten_sets) {
+			if (echild.index <= exten.max && echild.index >= exten.min) {
+				extmatch = true;
+				break;
+			}
+		}
+		if (!extmatch) throw new Exception("The field number "~toString(echild.index)~" for extension "~echild.name~" is not within a valid extension range for "~dst.name);
+	}
+	// now check each child vs each extension already applied to see if there are conflicts
+	foreach(dchild;dst.child_exten) foreach(echild;ext.children) {
+		if (dchild.index == echild.index) throw new Exception("Extensions "~dchild.name~" and "~echild.name~" to "~dst.name~" have identical index number "~toString(dchild.index));
+	}
 	// it looks like we have a match!
 	writefln("Applying extensions to %s",dst.name);
 	dst.child_exten ~= ext.children;
