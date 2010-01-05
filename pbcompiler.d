@@ -108,7 +108,7 @@ PBMessage*findMessage(char[]impstr,char[]message) {
 	return searchMessages(root,message);
 }
 
-PBMessage*searchMessages(T)(inout T root,char[]message)
+PBMessage*searchMessages(T)(ref T root,char[]message)
 in {
 	assert(message.length);
 } body {
